@@ -55,6 +55,10 @@
       .hidden {
         display: none;
       }
+
+      form#createProduct input {
+        width: 30%;
+      }
     </style>
   </head>
   <body>
@@ -83,8 +87,29 @@
       <p class="displayName">display name: </p>
       <button type="button" onClick="logout()">Logout</button>
       <div id="products">
+        <form id="filterSelect">
+          <select name="field">
+            <option value="name">Name</option>
+            <option value="price">Price</option>
+            <option value="amount">Amount</option>
+          </select>
+          <select name="equation">
+            <option value="==">==</option>
+            <option value=">">></option>
+            <option value="&lt;">&lt;</option>
+          </select>
+          <input name="value">
+          <button type="button" onclick="filter()">Filter</button>
+          <button type="button" onclick="refreshProducts()">Clear</button>
+        </form>
         <table>
         </table>
+        <form id="createProduct">
+          <input type="text" name="name"/>
+          <input type="number" name="price"/>
+          <input type="number" name="amount"/>
+          <button type="button" onclick="createProduct()">Create product</button>
+        </form>
       </div>
     </div>
     <p id="load">Firebase SDK Loading&hellip;</p>
@@ -151,10 +176,16 @@
                           document.querySelector("#userInfo").innerText = result.user.email;
                         });
       }
-      function loginWithEmailAndPassword() {
-        const formData = new FormData(document.querySelector('#login'));
+
+      function getFormData(selector) {
+        const formData = new FormData(document.querySelector(selector));
         const form = {};
         Array.from(formData.entries()).forEach(pair => form[pair[0]] = pair[1]);
+        return form;
+      }
+
+      function loginWithEmailAndPassword() {
+        const form = getFormData('#login');
         firebase.auth().signInWithEmailAndPassword(form.email, form.password)
                        .then(result => {
                           document.querySelector("#userInfo").innerText = result.user.email;
@@ -165,18 +196,59 @@
       function logout() {
         firebase.auth().signOut();
       }
-      
+
+      let productsSubscriber = () => {};
+
       function refreshProducts() {
-        firebase.firestore().collection('products').get().then(result => {
-          const tableEntries = [];
-          result.forEach(doc => tableEntries.push(doc.data()));
+        productsSubscriber();
+        productsSubscriber = firebase.firestore().collection('products').onSnapshot(updateTable);
+      }
+
+      function updateTable(data) {
+        console.log(data);
+        const tableEntries = [];
+        data.forEach(doc => tableEntries.push(doc.data()));
           
-          document.querySelector('#products>table').innerHTML = tableEntries.map(asTableRow).join('');
-        });
+        document.querySelector('#products>table').innerHTML = tableEntries.map(asTableRow).join('');
       }
 
       function asTableRow(data) {
-        return `<tr><td>${data.name}</td><td>${data.price}</td><td>${data.amount}</td></tr>`;
+        return `<tr>
+                  <td>${data.name}</td>
+                  <td>${data.price}</td>
+                  <td>${data.amount}</td>
+                  <td><button onclick="deleteProduct('${data.name}')">❌</button></td>
+                </tr>`;
+      }
+
+      function createProduct() {
+        let form = getFormData('#createProduct');
+        form = {name: form.name, amount: Number.parseInt(form.amount), price: Number.parseFloat(form.price)};
+        firebase.firestore().collection('products').doc(form.name)
+                                                   .set(form)
+                                                   .then(result => {
+                                                      console.log('Added: ', form);
+                                                   });
+      }
+
+      function deleteProduct(productName) {
+        firebase.firestore().collection('products').doc(productName).delete();
+      }
+
+      function filter() {
+        let form = getFormData('#filterSelect');
+        switch(form.field) {
+          case 'amount': 
+            form.value = Number.parseInt(form.value);
+            break;
+          case 'price':
+            form.value = Number.parseFloat(form.value);
+            break;
+        }
+        productsSubscriber()
+        productsSubscriber = firebase.firestore().collection('products')
+                                                 .where(form.field, form.equation, form.value)
+                                                 .onSnapshot(updateTable);
       }
     </script>
   </body>
