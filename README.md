@@ -1,7 +1,8 @@
 Server launch:
 
 ```bash
-npm install
-npm run dev
-Login with google account.
+firebase serve
+Login with google or:
+Username: test@test.com
+Password: testtest
 ```
