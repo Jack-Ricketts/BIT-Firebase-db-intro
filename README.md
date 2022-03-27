@@ -3,5 +3,5 @@ Server launch:
 ```bash
 npm install
 npm run dev
-Login with google.
+Login with google account.
 ```
